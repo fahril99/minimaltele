@@ -1,0 +1,25 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio
+*.iml
+.idea/
+local.properties
+*.apk
+*.aab
+*.ap_
+
+# Kotlin
+*.class
+
+# TDLib native libraries (user must build from source)
+app/src/main/jniLibs/
+
+# TDLib generated Java files (user must generate from TDLib build)
+app/src/main/java/org/drinkless/
+
+# OS files
+.DS_Store
+Thumbs.db
