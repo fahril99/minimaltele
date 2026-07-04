@@ -125,7 +125,9 @@ object TdClient {
     fun sendPhoto(chatId: Long, filePath: String) {
         val caption = TdApi.FormattedText("", emptyArray())
         val content = TdApi.InputMessagePhoto().apply {
-            photo = TdApi.InputFileLocal(filePath)
+            photo = TdApi.InputPhoto().apply {
+                photo = TdApi.InputFileLocal(filePath)
+            }
             this.caption = caption
         }
         doSendMessage(chatId, content)
@@ -134,7 +136,9 @@ object TdClient {
     fun sendVideo(chatId: Long, filePath: String) {
         val caption = TdApi.FormattedText("", emptyArray())
         val content = TdApi.InputMessageVideo().apply {
-            video = TdApi.InputFileLocal(filePath)
+            video = TdApi.InputVideo().apply {
+                video = TdApi.InputFileLocal(filePath)
+            }
             this.caption = caption
         }
         doSendMessage(chatId, content)
@@ -143,7 +147,9 @@ object TdClient {
     fun sendDocument(chatId: Long, filePath: String) {
         val caption = TdApi.FormattedText("", emptyArray())
         val content = TdApi.InputMessageDocument().apply {
-            document = TdApi.InputFileLocal(filePath)
+            document = TdApi.InputDocument().apply {
+                document = TdApi.InputFileLocal(filePath)
+            }
             this.caption = caption
         }
         doSendMessage(chatId, content)
