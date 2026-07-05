@@ -1,7 +1,11 @@
 package com.minimaltelegram
 
 import android.content.ContentResolver
+import android.content.Context
+import android.content.Intent
 import android.net.Uri
+import android.widget.ImageView
+import android.widget.ProgressBar
 import android.os.Bundle
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -66,8 +70,8 @@ class ChatActivity : AppCompatActivity() {
         val txtChatTitle = findViewById<TextView>(R.id.txtChatTitle)
         txtChatTitle.text = chatTitle
 
-        editMessage = findViewById(R.id.editMessage)
-        recyclerMessages = findViewById(R.id.recyclerMessages)
+        editMessage = findViewById<EditText>(R.id.editMessage)
+        recyclerMessages = findViewById<RecyclerView>(R.id.recyclerMessages)
 
         val layoutManager = LinearLayoutManager(this)
         layoutManager.stackFromEnd = true
@@ -75,10 +79,10 @@ class ChatActivity : AppCompatActivity() {
         recyclerMessages.adapter = adapter
 
         // Send text
-        layoutReplyPreview = findViewById(R.id.layoutReplyPreview)
-        txtReplyName = findViewById(R.id.txtReplyName)
-        txtReplyText = findViewById(R.id.txtReplyText)
-        btnCloseReply = findViewById(R.id.btnCloseReply)
+        layoutReplyPreview = findViewById<View>(R.id.layoutReplyPreview)
+        txtReplyName = findViewById<TextView>(R.id.txtReplyName)
+        txtReplyText = findViewById<TextView>(R.id.txtReplyText)
+        btnCloseReply = findViewById<ImageView>(R.id.btnCloseReply)
         
         btnCloseReply.setOnClickListener {
             cancelReplyOrEdit()
@@ -209,14 +213,14 @@ class ChatActivity : AppCompatActivity() {
     inner class MessageAdapter : RecyclerView.Adapter<MessageAdapter.VH>() {
 
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
-            val msgRoot: LinearLayout = view.findViewById(R.id.msgRoot)
-            val messageBubble: LinearLayout = view.findViewById(R.id.messageBubble)
-            val imgMsgAvatar: android.widget.ImageView = view.findViewById(R.id.imgMsgAvatar)
-            val txtSender: TextView = view.findViewById(R.id.txtSender)
-            val imgMedia: android.widget.ImageView = view.findViewById(R.id.imgMedia)
-            val txtContent: TextView = view.findViewById(R.id.txtContent)
-            val txtTime: TextView = view.findViewById(R.id.txtTime)
-            val imgStatus: android.widget.ImageView = view.findViewById(R.id.imgStatus)
+            val msgRoot = view.findViewById<LinearLayout>(R.id.msgRoot)
+            val messageBubble = view.findViewById<LinearLayout>(R.id.messageBubble)
+            val imgMsgAvatar = view.findViewById<ImageView>(R.id.imgMsgAvatar)
+            val txtSender = view.findViewById<TextView>(R.id.txtSender)
+            val imgMedia = view.findViewById<ImageView>(R.id.imgMedia)
+            val txtContent = view.findViewById<TextView>(R.id.txtContent)
+            val txtTime = view.findViewById<TextView>(R.id.txtTime)
+            val imgStatus = view.findViewById<ImageView>(R.id.imgStatus)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -313,7 +317,7 @@ class ChatActivity : AppCompatActivity() {
                         if (file.local.isDownloadingActive) {
                             progress.visibility = View.VISIBLE
                         } else if (file.local.canBeDownloaded) {
-                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(file.id, 1, 0, 0, true)) {}
+                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(file.id, 1, 0L, 0L, true)) {}
                             progress.visibility = View.VISIBLE
                         }
                     }
@@ -340,7 +344,7 @@ class ChatActivity : AppCompatActivity() {
                 } else {
                     if (file.local.canBeDownloaded && !file.local.isDownloadingActive) {
                         holder.imgMedia.setOnClickListener {
-                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(file.id, 32, 0, 0, true)) {}
+                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(file.id, 32, 0L, 0L, true)) {}
                         }
                     } else if (file.local.isDownloadingActive) {
                         progress.visibility = View.VISIBLE
@@ -352,7 +356,7 @@ class ChatActivity : AppCompatActivity() {
                                 .load(thumbnail.local.path)
                                 .into(holder.imgMedia)
                         } else if (thumbnail.local.canBeDownloaded && !thumbnail.local.isDownloadingActive) {
-                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(thumbnail.id, 1, 0, 0, true)) {}
+                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(thumbnail.id, 1, 0L, 0L, true)) {}
                         }
                     }
                 }

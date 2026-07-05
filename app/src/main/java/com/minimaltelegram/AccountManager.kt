@@ -8,7 +8,7 @@ object AccountManager {
     private const val KEY_ACTIVE_ACCOUNT = "active_account_id"
     private const val KEY_ACCOUNT_IDS = "account_ids"
     
-    private lateinit val prefs: SharedPreferences
+    private lateinit var prefs: SharedPreferences
     
     var activeAccountId: Int = 1
         private set

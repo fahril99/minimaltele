@@ -210,7 +210,14 @@ object TdClient {
     }
 
     fun forwardMessage(chatId: Long, fromChatId: Long, messageId: Long) {
-        currentAccount.client?.send(TdApi.ForwardMessages(chatId, fromChatId, longArrayOf(messageId), null, false, false, false)) { result ->
+        val forwardMessages = TdApi.ForwardMessages().apply {
+            this.chatId = chatId
+            this.fromChatId = fromChatId
+            this.messageIds = longArrayOf(messageId)
+            this.sendCopy = false
+            this.removeCaption = false
+        }
+        currentAccount.client?.send(forwardMessages) { result ->
             handleError(result)
         }
     }
