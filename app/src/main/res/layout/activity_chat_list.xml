@@ -23,11 +23,11 @@
             android:textStyle="bold" />
 
         <Button
-            android:id="@+id/btnLogout"
+            android:id="@+id/btnAccounts"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@android:color/transparent"
-            android:text="Logout"
+            android:text="Accounts"
             android:textColor="#FFFFFF" />
 
     </LinearLayout>

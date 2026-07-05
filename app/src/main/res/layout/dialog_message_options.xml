@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="8dp"
+    android:paddingBottom="16dp">
+
+    <TextView
+        android:id="@+id/btnReply"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="16dp"
+        android:text="Reply"
+        android:textColor="#000000"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/btnCopy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="16dp"
+        android:text="Copy"
+        android:textColor="#000000"
+        android:textSize="16sp" />
+        
+    <TextView
+        android:id="@+id/btnEdit"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="16dp"
+        android:text="Edit"
+        android:textColor="#000000"
+        android:textSize="16sp"
+        android:visibility="gone"/>
+
+    <TextView
+        android:id="@+id/btnForward"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="16dp"
+        android:text="Forward"
+        android:textColor="#000000"
+        android:textSize="16sp" />
+
+    <TextView
+        android:id="@+id/btnDelete"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/selectableItemBackground"
+        android:padding="16dp"
+        android:text="Delete"
+        android:textColor="#F44336"
+        android:textSize="16sp" />
+
+</LinearLayout>

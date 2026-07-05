@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center">
+
+    <LinearLayout
+        android:id="@+id/btnAttachPhoto"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center"
+        android:orientation="vertical">
+        
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_gallery"
+            android:tint="#0088CC" />
+            
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Gallery"
+            android:textColor="#000000" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btnAttachVideo"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center"
+        android:orientation="vertical">
+        
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_camera"
+            android:tint="#E91E63" />
+            
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Video"
+            android:textColor="#000000" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btnAttachDocument"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:background="?android:attr/selectableItemBackground"
+        android:gravity="center"
+        android:orientation="vertical">
+        
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@android:drawable/ic_menu_manage"
+            android:tint="#FF9800" />
+            
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="File"
+            android:textColor="#000000" />
+    </LinearLayout>
+
+</LinearLayout>

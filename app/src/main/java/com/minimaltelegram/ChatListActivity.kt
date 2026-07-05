@@ -32,15 +32,37 @@ class ChatListActivity : AppCompatActivity() {
         recyclerChats.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
         recyclerChats.adapter = adapter
 
-        val btnLogout = findViewById<Button>(R.id.btnLogout)
-        btnLogout.setOnClickListener {
+        val btnAccounts = findViewById<Button>(R.id.btnAccounts)
+        btnAccounts.setOnClickListener {
+            val accountIds = AccountManager.getAccountIds()
+            val options = accountIds.map { "Account $it ${if (it == AccountManager.activeAccountId) "(Active)" else ""}" }.toMutableList()
+            options.add("➕ Add Account")
+            options.add("🚪 Logout Current Account")
+            
             AlertDialog.Builder(this)
-                .setTitle("Logout")
-                .setMessage("Are you sure you want to logout?")
-                .setPositiveButton("Logout") { _, _ ->
-                    TdClient.logout()
+                .setTitle("Accounts")
+                .setItems(options.toTypedArray()) { _, which ->
+                    when {
+                        which < accountIds.size -> {
+                            val selectedId = accountIds[which]
+                            if (selectedId != AccountManager.activeAccountId) {
+                                TdClient.switchAccount(selectedId)
+                            }
+                        }
+                        which == accountIds.size -> { // Add Account
+                            val newId = AccountManager.createNewAccount()
+                            TdClient.switchAccount(newId)
+                        }
+                        which == accountIds.size + 1 -> { // Logout
+                            AlertDialog.Builder(this)
+                                .setTitle("Logout")
+                                .setMessage("Are you sure you want to logout?")
+                                .setPositiveButton("Logout") { _, _ -> TdClient.logout() }
+                                .setNegativeButton("Cancel", null)
+                                .show()
+                        }
+                    }
                 }
-                .setNegativeButton("Cancel", null)
                 .show()
         }
 
@@ -91,6 +113,9 @@ class ChatListActivity : AppCompatActivity() {
             val txtTitle: TextView = view.findViewById(R.id.txtChatTitle)
             val txtTime: TextView = view.findViewById(R.id.txtTime)
             val txtLastMsg: TextView = view.findViewById(R.id.txtLastMessage)
+            val imgAvatar: android.widget.ImageView = view.findViewById(R.id.imgAvatar)
+            val imgPinned: android.widget.ImageView = view.findViewById(R.id.imgPinned)
+            val txtUnreadCount: TextView = view.findViewById(R.id.txtUnreadCount)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -106,6 +131,33 @@ class ChatListActivity : AppCompatActivity() {
             val chat = TdClient.chats[chatId] ?: return
 
             holder.txtTitle.text = chat.title ?: "Unknown"
+
+            // Unread Count
+            if (chat.unreadCount > 0) {
+                holder.txtUnreadCount.visibility = View.VISIBLE
+                holder.txtUnreadCount.text = chat.unreadCount.toString()
+            } else {
+                holder.txtUnreadCount.visibility = View.GONE
+            }
+
+            // Pinned Icon
+            val isPinned = chat.positions?.any { it.list?.constructor == TdApi.ChatListMain.CONSTRUCTOR && it.isPinned } ?: false
+            holder.imgPinned.visibility = if (isPinned) View.VISIBLE else View.GONE
+
+            // Avatar via Glide
+            holder.imgAvatar.setImageResource(R.drawable.bg_avatar_placeholder) // reset first
+            val photo = chat.photo?.small
+            if (photo != null) {
+                if (photo.local?.isDownloadingCompleted == true) {
+                    com.bumptech.glide.Glide.with(holder.itemView.context)
+                        .load(photo.local?.path)
+                        .circleCrop()
+                        .into(holder.imgAvatar)
+                } else if (photo.local?.isDownloadingActive == false && photo.local?.canBeDownloaded == true) {
+                    // Start download
+                    TdClient.currentAccount.client?.send(TdApi.DownloadFile(photo.id, 1, 0, 0, true)) {}
+                }
+            }
 
             val lastMsg = chat.lastMessage
             if (lastMsg != null) {
