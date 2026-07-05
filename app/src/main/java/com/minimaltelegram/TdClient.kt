@@ -15,6 +15,7 @@ class AccountState(val accountId: Int, val databaseDir: String) {
     var authState: TdApi.AuthorizationState? = null
     var myUserId: Long = 0L
     val chats = ConcurrentHashMap<Long, TdApi.Chat>()
+    val users = ConcurrentHashMap<Long, TdApi.User>()
     val orderedChatIds: MutableList<Long> = Collections.synchronizedList(mutableListOf())
 }
 
@@ -43,6 +44,7 @@ object TdClient {
     val authState: TdApi.AuthorizationState? get() = currentAccount.authState
     val myUserId: Long get() = currentAccount.myUserId
     val chats: ConcurrentHashMap<Long, TdApi.Chat> get() = currentAccount.chats
+    val users: ConcurrentHashMap<Long, TdApi.User> get() = currentAccount.users
     val orderedChatIds: MutableList<Long> get() = currentAccount.orderedChatIds
 
     // ---- Callbacks (set by Activities, triggered for active account only) ----
@@ -289,6 +291,11 @@ object TdClient {
                 state.chats[chat.id] = chat
                 addChatToOrderedList(state, chat)
                 if (isActiveAccount) mainHandler.post { onChatsUpdated?.invoke() }
+            }
+
+            TdApi.UpdateUser.CONSTRUCTOR -> {
+                val user = (update as TdApi.UpdateUser).user
+                state.users[user.id] = user
             }
 
             TdApi.UpdateChatPosition.CONSTRUCTOR -> {

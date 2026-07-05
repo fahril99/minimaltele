@@ -116,6 +116,8 @@ class ChatListActivity : AppCompatActivity() {
             val imgAvatar: android.widget.ImageView = view.findViewById(R.id.imgAvatar)
             val imgPinned: android.widget.ImageView = view.findViewById(R.id.imgPinned)
             val txtUnreadCount: TextView = view.findViewById(R.id.txtUnreadCount)
+            val imgMuted: android.widget.ImageView = view.findViewById(R.id.imgMuted)
+            val imgReadStatus: android.widget.ImageView = view.findViewById(R.id.imgReadStatus)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -144,6 +146,10 @@ class ChatListActivity : AppCompatActivity() {
             val isPinned = chat.positions?.any { it.list?.constructor == TdApi.ChatListMain.CONSTRUCTOR && it.isPinned } ?: false
             holder.imgPinned.visibility = if (isPinned) View.VISIBLE else View.GONE
 
+            // Muted Icon
+            val isMuted = (chat.notificationSettings?.muteFor ?: 0) > 0
+            holder.imgMuted.visibility = if (isMuted) View.VISIBLE else View.GONE
+
             // Avatar via Glide
             holder.imgAvatar.setImageResource(R.drawable.bg_avatar_placeholder) // reset first
             val photo = chat.photo?.small
@@ -155,7 +161,7 @@ class ChatListActivity : AppCompatActivity() {
                         .into(holder.imgAvatar)
                 } else if (photo.local?.isDownloadingActive == false && photo.local?.canBeDownloaded == true) {
                     // Start download
-                    TdClient.currentAccount.client?.send(TdApi.DownloadFile(photo.id, 1, 0, 0, true)) {}
+                    TdClient.currentAccount.client?.send(TdApi.DownloadFile(photo.id, 1, 0L, 0L, true)) {}
                 }
             }
 
@@ -163,9 +169,21 @@ class ChatListActivity : AppCompatActivity() {
             if (lastMsg != null) {
                 holder.txtLastMsg.text = TdClient.getMessageText(lastMsg.content)
                 holder.txtTime.text = formatTime(lastMsg.date)
+                
+                if (lastMsg.isOutgoing) {
+                    holder.imgReadStatus.visibility = View.VISIBLE
+                    if (chat.lastReadOutboxMessageId >= lastMsg.id) {
+                        holder.imgReadStatus.setColorFilter(android.graphics.Color.parseColor("#0088CC")) // Read (Blue)
+                    } else {
+                        holder.imgReadStatus.setColorFilter(android.graphics.Color.parseColor("#AAAAAA")) // Unread (Gray)
+                    }
+                } else {
+                    holder.imgReadStatus.visibility = View.GONE
+                }
             } else {
                 holder.txtLastMsg.text = ""
                 holder.txtTime.text = ""
+                holder.imgReadStatus.visibility = View.GONE
             }
 
             holder.itemView.setOnClickListener {

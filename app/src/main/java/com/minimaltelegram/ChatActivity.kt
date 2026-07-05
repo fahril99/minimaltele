@@ -47,6 +47,9 @@ class ChatActivity : AppCompatActivity() {
     private var replyToMessageId: Long = 0L
     private var editMessageId: Long = 0L
 
+    private var isLoadingHistory = false
+    private var hasMoreHistory = true
+
     // File pickers
     private val pickPhoto = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let { sendFileFromUri(it, "photo") }
@@ -67,7 +70,7 @@ class ChatActivity : AppCompatActivity() {
         chatId = intent.getLongExtra("chat_id", 0L)
         val chatTitle = intent.getStringExtra("chat_title") ?: "Chat"
 
-        val txtChatTitle = findViewById<TextView>(R.id.txtChatTitle)
+        txtChatTitle = findViewById<TextView>(R.id.txtChatTitle)
         txtChatTitle.text = chatTitle
 
         editMessage = findViewById<EditText>(R.id.editMessage)
@@ -77,6 +80,18 @@ class ChatActivity : AppCompatActivity() {
         layoutManager.stackFromEnd = true
         recyclerMessages.layoutManager = layoutManager
         recyclerMessages.adapter = adapter
+
+        recyclerMessages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                if (dy < 0 && !recyclerView.canScrollVertically(-1)) {
+                    if (messages.isNotEmpty()) {
+                        val oldestMessageId = messages.first().id
+                        loadHistory(oldestMessageId)
+                    }
+                }
+            }
+        })
 
         // Send text
         layoutReplyPreview = findViewById<View>(R.id.layoutReplyPreview)
@@ -121,6 +136,11 @@ class ChatActivity : AppCompatActivity() {
             Toast.makeText(this, error, Toast.LENGTH_SHORT).show()
         }
 
+        TdClient.onFileUpdated = { file ->
+            // Notify adapter to update progress (could be optimized)
+            adapter.notifyDataSetChanged()
+        }
+
         // Mark chat as read
         TdClient.openChat(chatId)
 
@@ -133,13 +153,29 @@ class ChatActivity : AppCompatActivity() {
         TdClient.closeChat(chatId)
     }
 
-    private fun loadHistory() {
-        TdClient.getChatHistory(chatId, 0L, 50) { history ->
-            messages.clear()
-            messages.addAll(history.reversed()) // TDLib returns newest first, we want oldest first
-            adapter.notifyDataSetChanged()
-            if (messages.isNotEmpty()) {
-                recyclerMessages.scrollToPosition(messages.size - 1)
+    private fun loadHistory(fromMessageId: Long = 0L) {
+        if (isLoadingHistory || !hasMoreHistory) return
+        isLoadingHistory = true
+        
+        TdClient.getChatHistory(chatId, fromMessageId, 50) { history ->
+            isLoadingHistory = false
+            if (history.isEmpty()) {
+                hasMoreHistory = false
+                return@getChatHistory
+            }
+            
+            val newMessages = history.reversed() // TDLib returns newest first
+            
+            if (fromMessageId == 0L) {
+                messages.clear()
+                messages.addAll(newMessages)
+                adapter.notifyDataSetChanged()
+                if (messages.isNotEmpty()) {
+                    recyclerMessages.scrollToPosition(messages.size - 1)
+                }
+            } else {
+                messages.addAll(0, newMessages)
+                adapter.notifyItemRangeInserted(0, newMessages.size)
             }
         }
     }
@@ -213,6 +249,7 @@ class ChatActivity : AppCompatActivity() {
     inner class MessageAdapter : RecyclerView.Adapter<MessageAdapter.VH>() {
 
         inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+            val txtDateDivider = view.findViewById<TextView>(R.id.txtDateDivider)
             val msgRoot = view.findViewById<LinearLayout>(R.id.msgRoot)
             val messageBubble = view.findViewById<LinearLayout>(R.id.messageBubble)
             val imgMsgAvatar = view.findViewById<ImageView>(R.id.imgMsgAvatar)
@@ -221,6 +258,15 @@ class ChatActivity : AppCompatActivity() {
             val txtContent = view.findViewById<TextView>(R.id.txtContent)
             val txtTime = view.findViewById<TextView>(R.id.txtTime)
             val imgStatus = view.findViewById<ImageView>(R.id.imgStatus)
+
+            // Document and Voice
+            val layoutDocument = view.findViewById<LinearLayout>(R.id.layoutDocument)
+            val txtDocName = view.findViewById<TextView>(R.id.txtDocName)
+            val txtDocInfo = view.findViewById<TextView>(R.id.txtDocInfo)
+            
+            val layoutVoice = view.findViewById<LinearLayout>(R.id.layoutVoice)
+            val txtVoiceDuration = view.findViewById<TextView>(R.id.txtVoiceDuration)
+            val imgVoicePlay = view.findViewById<ImageView>(R.id.imgVoicePlay)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -234,6 +280,19 @@ class ChatActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: VH, position: Int) {
             val msg = messages[position]
             val isOutgoing = msg.isOutgoing
+
+            // Date Divider
+            val prevMsg = if (position > 0) messages[position - 1] else null
+            val sdfDate = SimpleDateFormat("dd MMMM yyyy", Locale.getDefault())
+            val msgDateStr = sdfDate.format(Date(msg.date.toLong() * 1000))
+            val prevMsgDateStr = prevMsg?.let { sdfDate.format(Date(it.date.toLong() * 1000)) }
+
+            if (prevMsgDateStr == null || msgDateStr != prevMsgDateStr) {
+                holder.txtDateDivider?.visibility = View.VISIBLE
+                holder.txtDateDivider?.text = msgDateStr
+            } else {
+                holder.txtDateDivider?.visibility = View.GONE
+            }
 
             // Setup Bubble and Alignment
             if (isOutgoing) {
@@ -257,18 +316,37 @@ class ChatActivity : AppCompatActivity() {
                     holder.txtSender.visibility = View.VISIBLE
                     
                     val senderId = msg.senderId
-                    val senderName = when (senderId?.constructor) {
+                    var senderName = "Unknown"
+                    var photoFile: org.drinkless.tdlib.TdApi.File? = null
+                    
+                    when (senderId?.constructor) {
                         TdApi.MessageSenderUser.CONSTRUCTOR -> {
                             val userId = (senderId as TdApi.MessageSenderUser).userId
-                            "User $userId"
+                            val user = TdClient.users[userId]
+                            senderName = user?.let { "${it.firstName} ${it.lastName}" }?.trim() ?: "User $userId"
+                            photoFile = user?.profilePhoto?.small
                         }
                         TdApi.MessageSenderChat.CONSTRUCTOR -> {
                             val senderChatId = (senderId as TdApi.MessageSenderChat).chatId
-                            TdClient.chats[senderChatId]?.title ?: "Chat $senderChatId"
+                            val senderChat = TdClient.chats[senderChatId]
+                            senderName = senderChat?.title ?: "Chat $senderChatId"
+                            photoFile = senderChat?.photo?.small
                         }
-                        else -> "Unknown"
                     }
+                    
                     holder.txtSender.text = senderName
+                    
+                    holder.imgMsgAvatar.setImageResource(R.drawable.bg_avatar_placeholder)
+                    if (photoFile != null) {
+                        if (photoFile.local.isDownloadingCompleted) {
+                            com.bumptech.glide.Glide.with(holder.itemView.context)
+                                .load(photoFile.local.path)
+                                .circleCrop()
+                                .into(holder.imgMsgAvatar)
+                        } else if (photoFile.local.canBeDownloaded && !photoFile.local.isDownloadingActive) {
+                            TdClient.currentAccount.client?.send(TdApi.DownloadFile(photoFile.id, 1, 0L, 0L, true)) {}
+                        }
+                    }
                 } else {
                     holder.imgMsgAvatar.visibility = View.GONE
                     holder.txtSender.visibility = View.GONE
@@ -282,6 +360,9 @@ class ChatActivity : AppCompatActivity() {
             progress.visibility = View.GONE
             val imgPlay = holder.itemView.findViewById<ImageView>(R.id.imgPlayVideo)
             imgPlay.visibility = View.GONE
+
+            holder.layoutDocument?.visibility = View.GONE
+            holder.layoutVoice?.visibility = View.GONE
 
             val content = msg.content
             if (content is TdApi.MessageText) {
@@ -358,6 +439,61 @@ class ChatActivity : AppCompatActivity() {
                         } else if (thumbnail.local.canBeDownloaded && !thumbnail.local.isDownloadingActive) {
                             TdClient.currentAccount.client?.send(TdApi.DownloadFile(thumbnail.id, 1, 0L, 0L, true)) {}
                         }
+                    }
+                }
+            } else if (content is TdApi.MessageDocument) {
+                holder.layoutDocument?.visibility = View.VISIBLE
+                holder.txtContent.visibility = if (content.caption.text.isNotEmpty()) View.VISIBLE else View.GONE
+                holder.txtContent.text = content.caption.text
+                
+                val doc = content.document
+                holder.txtDocName?.text = doc.fileName
+                val sizeKb = doc.document.expectedSize / 1024
+                
+                if (doc.document.local.isDownloadingCompleted) {
+                    holder.txtDocInfo?.text = "${sizeKb} KB • Downloaded"
+                    holder.layoutDocument?.setOnClickListener {
+                        val intent = Intent(Intent.ACTION_VIEW)
+                        intent.setDataAndType(Uri.fromFile(File(doc.document.local.path)), "*/*")
+                        intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        try {
+                            holder.itemView.context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(holder.itemView.context, "Cannot open file", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else if (doc.document.local.isDownloadingActive) {
+                    holder.txtDocInfo?.text = "${sizeKb} KB • Downloading..."
+                    holder.layoutDocument?.setOnClickListener(null)
+                } else {
+                    holder.txtDocInfo?.text = "${sizeKb} KB • Tap to Download"
+                    holder.layoutDocument?.setOnClickListener {
+                        TdClient.currentAccount.client?.send(TdApi.DownloadFile(doc.document.id, 32, 0L, 0L, true)) {}
+                    }
+                }
+            } else if (content is TdApi.MessageVoiceNote) {
+                holder.layoutVoice?.visibility = View.VISIBLE
+                holder.txtContent.visibility = if (content.caption.text.isNotEmpty()) View.VISIBLE else View.GONE
+                holder.txtContent.text = content.caption.text
+                
+                val voice = content.voiceNote
+                val duration = voice.duration
+                val min = duration / 60
+                val sec = duration % 60
+                holder.txtVoiceDuration?.text = String.format("%d:%02d", min, sec)
+                
+                if (voice.voice.local.isDownloadingCompleted) {
+                    holder.imgVoicePlay?.setImageResource(android.R.drawable.ic_media_play)
+                    holder.layoutVoice?.setOnClickListener {
+                        Toast.makeText(holder.itemView.context, "Voice playback not implemented yet", Toast.LENGTH_SHORT).show()
+                    }
+                } else if (voice.voice.local.isDownloadingActive) {
+                    holder.imgVoicePlay?.setImageResource(android.R.drawable.ic_popup_sync)
+                    holder.layoutVoice?.setOnClickListener(null)
+                } else {
+                    holder.imgVoicePlay?.setImageResource(android.R.drawable.stat_sys_download)
+                    holder.layoutVoice?.setOnClickListener {
+                        TdClient.currentAccount.client?.send(TdApi.DownloadFile(voice.voice.id, 32, 0L, 0L, true)) {}
                     }
                 }
             } else {

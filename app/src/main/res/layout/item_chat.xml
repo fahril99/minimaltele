@@ -40,12 +40,31 @@
                 android:textStyle="bold" />
 
             <ImageView
+                android:id="@+id/imgMuted"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginStart="4dp"
+                android:src="@android:drawable/ic_lock_silent_mode_off"
+                android:tint="#AAAAAA"
+                android:visibility="gone"/>
+
+            <ImageView
                 android:id="@+id/imgPinned"
                 android:layout_width="14dp"
                 android:layout_height="14dp"
                 android:layout_marginEnd="4dp"
+                android:layout_marginStart="4dp"
                 android:src="@android:drawable/ic_menu_sort_by_size"
                 android:tint="#AAAAAA"
+                android:visibility="gone"/>
+
+            <ImageView
+                android:id="@+id/imgReadStatus"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginEnd="4dp"
+                android:layout_marginStart="4dp"
+                android:src="@android:drawable/ic_menu_send"
                 android:visibility="gone"/>
 
             <TextView
