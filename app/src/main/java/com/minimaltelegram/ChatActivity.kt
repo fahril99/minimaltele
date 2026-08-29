@@ -146,6 +146,42 @@ class ChatActivity : AppCompatActivity() {
 
         // Load history
         loadHistory()
+        
+        // Search button
+        val btnSearch = findViewById<ImageView>(R.id.btnSearch)
+        btnSearch.setOnClickListener {
+            val intent = Intent(this, FileSearchActivity::class.java)
+            intent.putExtra("chat_id", chatId)
+            startActivity(intent)
+        }
+    }
+
+    private fun saveToDownloads(filePath: String, fileName: String) {
+        try {
+            val sourceFile = File(filePath)
+            if (!sourceFile.exists()) {
+                Toast.makeText(this, "File not fully downloaded yet", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+            val destFile = File(downloadsDir, fileName)
+            
+            // Generate unique name if exists
+            var finalFile = destFile
+            var counter = 1
+            val nameWithoutExt = destFile.nameWithoutExtension
+            val ext = destFile.extension
+            while (finalFile.exists()) {
+                finalFile = File(downloadsDir, "${nameWithoutExt}_$counter.$ext")
+                counter++
+            }
+            
+            sourceFile.copyTo(finalFile, overwrite = true)
+            Toast.makeText(this, "Saved to Downloads", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onDestroy() {
@@ -164,18 +200,40 @@ class ChatActivity : AppCompatActivity() {
                 return@getChatHistory
             }
             
-            val newMessages = history.reversed() // TDLib returns newest first
+            val newMessages = history.reversed().filter { newMsg -> 
+                messages.none { it.id == newMsg.id } 
+            }
             
+            if (newMessages.isEmpty()) {
+                // We got messages but all were duplicates, meaning we likely reached the end or need to fetch further
+                if (history.size < 50) hasMoreHistory = false
+                return@getChatHistory
+            }
+
+            val oldList = messages.toList()
             if (fromMessageId == 0L) {
                 messages.clear()
                 messages.addAll(newMessages)
-                adapter.notifyDataSetChanged()
-                if (messages.isNotEmpty()) {
-                    recyclerMessages.scrollToPosition(messages.size - 1)
-                }
             } else {
                 messages.addAll(0, newMessages)
-                adapter.notifyItemRangeInserted(0, newMessages.size)
+            }
+
+            val diffResult = androidx.recyclerview.widget.DiffUtil.calculateDiff(object : androidx.recyclerview.widget.DiffUtil.Callback() {
+                override fun getOldListSize() = oldList.size
+                override fun getNewListSize() = messages.size
+                override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                    return oldList[oldItemPosition].id == messages[newItemPosition].id
+                }
+                override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                    // For simplicity, assume content doesn't change unless we get an explicit update
+                    return true 
+                }
+            })
+
+            diffResult.dispatchUpdatesTo(adapter)
+
+            if (fromMessageId == 0L && messages.isNotEmpty()) {
+                recyclerMessages.scrollToPosition(messages.size - 1)
             }
         }
     }
@@ -196,6 +254,12 @@ class ChatActivity : AppCompatActivity() {
         view.findViewById<View>(R.id.btnAttachDocument).setOnClickListener {
             dialog.dismiss()
             pickDocument.launch("*/*")
+        }
+        
+        // Add Location and Contact mock options
+        view.findViewById<View>(R.id.btnAttachLocation)?.setOnClickListener {
+            dialog.dismiss()
+            Toast.makeText(this, "Location not implemented", Toast.LENGTH_SHORT).show()
         }
         
         dialog.show()
@@ -522,10 +586,37 @@ class ChatActivity : AppCompatActivity() {
         val btnEdit = view.findViewById<TextView>(R.id.btnEdit)
         val btnForward = view.findViewById<TextView>(R.id.btnForward)
         val btnDelete = view.findViewById<TextView>(R.id.btnDelete)
+        val btnSave = view.findViewById<TextView>(R.id.btnSave)
         
         // Only show edit for outgoing text messages
         if (msg.isOutgoing && msg.content is TdApi.MessageText) {
             btnEdit.visibility = View.VISIBLE
+        }
+        
+        // Check if there is a file to save
+        var fileToSave: org.drinkless.tdlib.TdApi.File? = null
+        var fileNameToSave = "telegram_media"
+        when (val c = msg.content) {
+            is TdApi.MessagePhoto -> {
+                fileToSave = c.photo.sizes.maxByOrNull { it.width }?.photo
+                fileNameToSave = "photo_${msg.id}.jpg"
+            }
+            is TdApi.MessageVideo -> {
+                fileToSave = c.video.video
+                fileNameToSave = c.video.fileName.takeIf { it.isNotEmpty() } ?: "video_${msg.id}.mp4"
+            }
+            is TdApi.MessageDocument -> {
+                fileToSave = c.document.document
+                fileNameToSave = c.document.fileName.takeIf { it.isNotEmpty() } ?: "file_${msg.id}"
+            }
+        }
+        
+        if (fileToSave != null && fileToSave.local.isDownloadingCompleted) {
+            btnSave.visibility = View.VISIBLE
+            btnSave.setOnClickListener {
+                dialog.dismiss()
+                saveToDownloads(fileToSave.local.path, fileNameToSave)
+            }
         }
         
         btnReply.setOnClickListener {

@@ -51,6 +51,8 @@ object TdClient {
     var onAuthStateChanged: ((TdApi.AuthorizationState) -> Unit)? = null
     var onChatsUpdated: (() -> Unit)? = null
     var onNewMessage: ((TdApi.Message) -> Unit)? = null
+    var onMessageSendSucceeded: ((TdApi.Message) -> Unit)? = null
+    var onChatReadOutbox: ((Long, Long) -> Unit)? = null
     var onFileUpdated: ((TdApi.File) -> Unit)? = null
     var onError: ((String) -> Unit)? = null
 
@@ -128,6 +130,29 @@ object TdClient {
     fun getChatHistory(chatId: Long, fromMessageId: Long, limit: Int, callback: (List<TdApi.Message>) -> Unit) {
         currentAccount.client?.send(TdApi.GetChatHistory(chatId, fromMessageId, 0, limit, false)) { result ->
             if (result.constructor == TdApi.Messages.CONSTRUCTOR) {
+                val messages = (result as TdApi.Messages).messages?.toList() ?: emptyList()
+                mainHandler.post { callback(messages) }
+            } else {
+                handleError(result)
+                mainHandler.post { callback(emptyList()) }
+            }
+        }
+    }
+
+    fun searchChatMessages(chatId: Long, query: String, filter: TdApi.SearchMessagesFilter?, limit: Int, callback: (List<TdApi.Message>) -> Unit) {
+        val searchMessages = TdApi.SearchChatMessages().apply {
+            this.chatId = chatId
+            this.query = query
+            this.filter = filter
+            this.limit = limit
+        }
+        currentAccount.client?.send(searchMessages) { result ->
+            if (result.constructor == TdApi.FoundChatMessages.CONSTRUCTOR) {
+                val found = result as TdApi.FoundChatMessages
+                val messages = found.messages?.toList() ?: emptyList()
+                mainHandler.post { callback(messages) }
+            } else if (result.constructor == TdApi.Messages.CONSTRUCTOR) {
+                // Sometime returns Messages directly depending on tdlib version
                 val messages = (result as TdApi.Messages).messages?.toList() ?: emptyList()
                 mainHandler.post { callback(messages) }
             } else {
@@ -251,6 +276,7 @@ object TdClient {
                             apiHash = API_HASH
                             databaseDirectory = state.databaseDir
                             useMessageDatabase = true
+                            useFileDatabase = true
                             useSecretChats = false
                             systemLanguageCode = "en"
                             deviceModel = Build.MODEL
@@ -341,6 +367,16 @@ object TdClient {
             TdApi.UpdateNewMessage.CONSTRUCTOR -> {
                 val msg = (update as TdApi.UpdateNewMessage).message
                 if (isActiveAccount) mainHandler.post { onNewMessage?.invoke(msg) }
+            }
+            
+            TdApi.UpdateMessageSendSucceeded.CONSTRUCTOR -> {
+                val msg = (update as TdApi.UpdateMessageSendSucceeded).message
+                if (isActiveAccount) mainHandler.post { onMessageSendSucceeded?.invoke(msg) }
+            }
+            
+            TdApi.UpdateChatReadOutbox.CONSTRUCTOR -> {
+                val upd = update as TdApi.UpdateChatReadOutbox
+                if (isActiveAccount) mainHandler.post { onChatReadOutbox?.invoke(upd.chatId, upd.lastReadOutboxMessageId) }
             }
             
             TdApi.UpdateFile.CONSTRUCTOR -> {
