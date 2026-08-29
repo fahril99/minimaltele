@@ -256,12 +256,6 @@ class ChatActivity : AppCompatActivity() {
             pickDocument.launch("*/*")
         }
         
-        // Add Location and Contact mock options
-        view.findViewById<View>(R.id.btnAttachLocation)?.setOnClickListener {
-            dialog.dismiss()
-            Toast.makeText(this, "Location not implemented", Toast.LENGTH_SHORT).show()
-        }
-        
         dialog.show()
     }
 
