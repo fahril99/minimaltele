@@ -79,6 +79,8 @@ class ChatActivity : AppCompatActivity() {
         val layoutManager = LinearLayoutManager(this)
         layoutManager.stackFromEnd = true
         recyclerMessages.layoutManager = layoutManager
+        recyclerMessages.setHasFixedSize(false)
+        recyclerMessages.setItemViewCacheSize(50)
         recyclerMessages.adapter = adapter
 
         recyclerMessages.addOnScrollListener(object : RecyclerView.OnScrollListener() {
@@ -137,8 +139,23 @@ class ChatActivity : AppCompatActivity() {
         }
 
         TdClient.onFileUpdated = { file ->
-            // Notify adapter to update progress (could be optimized)
-            adapter.notifyDataSetChanged()
+            // Only refresh items that actually reference this file
+            val idx = messages.indexOfFirst { msg ->
+                when (msg.content?.constructor) {
+                    TdApi.MessagePhoto.CONSTRUCTOR -> {
+                        val photo = (msg.content as TdApi.MessagePhoto).photo
+                        photo?.sizes?.any { it.photo?.id == file.id } == true
+                    }
+                    TdApi.MessageVideo.CONSTRUCTOR ->
+                        (msg.content as TdApi.MessageVideo).video?.video?.id == file.id
+                    TdApi.MessageDocument.CONSTRUCTOR ->
+                        (msg.content as TdApi.MessageDocument).document?.document?.id == file.id
+                    TdApi.MessageVoiceNote.CONSTRUCTOR ->
+                        (msg.content as TdApi.MessageVoiceNote).voiceNote?.voice?.id == file.id
+                    else -> false
+                }
+            }
+            if (idx >= 0) adapter.notifyItemChanged(idx)
         }
 
         // Mark chat as read

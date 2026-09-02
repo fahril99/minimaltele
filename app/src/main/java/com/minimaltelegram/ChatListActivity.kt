@@ -2,6 +2,8 @@ package com.minimaltelegram
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -10,7 +12,6 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import org.drinkless.tdlib.TdApi
@@ -23,19 +24,28 @@ class ChatListActivity : AppCompatActivity() {
     private lateinit var recyclerChats: RecyclerView
     private val adapter = ChatListAdapter()
 
+    // Debounce: max one list refresh per 200ms to prevent freeze on startup
+    private val uiHandler = Handler(Looper.getMainLooper())
+    private var pendingRefresh = false
+    private val refreshRunnable = Runnable {
+        pendingRefresh = false
+        adapter.notifyDataSetChanged()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat_list)
 
         recyclerChats = findViewById(R.id.recyclerChats)
         recyclerChats.layoutManager = LinearLayoutManager(this)
-        recyclerChats.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
+        recyclerChats.setHasFixedSize(true)
+        recyclerChats.setItemViewCacheSize(30)
         recyclerChats.adapter = adapter
 
         val btnAccounts = findViewById<Button>(R.id.btnAccounts)
         btnAccounts.setOnClickListener {
             val accountIds = AccountManager.getAccountIds()
-            val options = accountIds.map { "Account $it ${if (it == AccountManager.activeAccountId) "(Active)" else ""}" }.toMutableList()
+            val options = accountIds.map { "Account $it ${if (it == AccountManager.activeAccountId) "(Active)" else ""}".trimEnd() }.toMutableList()
             options.add("➕ Add Account")
             options.add("🚪 Logout Current Account")
             
@@ -66,9 +76,7 @@ class ChatListActivity : AppCompatActivity() {
                 .show()
         }
 
-        TdClient.onChatsUpdated = {
-            adapter.notifyDataSetChanged()
-        }
+        TdClient.onChatsUpdated = { scheduleRefresh() }
 
         TdClient.onAuthStateChanged = { state ->
             when (state.constructor) {
@@ -88,11 +96,16 @@ class ChatListActivity : AppCompatActivity() {
         TdClient.loadChats()
     }
 
+    private fun scheduleRefresh() {
+        if (!pendingRefresh) {
+            pendingRefresh = true
+            uiHandler.postDelayed(refreshRunnable, 200)
+        }
+    }
+
     override fun onResume() {
         super.onResume()
-        TdClient.onChatsUpdated = {
-            adapter.notifyDataSetChanged()
-        }
+        TdClient.onChatsUpdated = { scheduleRefresh() }
         TdClient.onAuthStateChanged = { state ->
             when (state.constructor) {
                 TdApi.AuthorizationStateWaitPhoneNumber.CONSTRUCTOR,
@@ -102,7 +115,12 @@ class ChatListActivity : AppCompatActivity() {
                 }
             }
         }
-        adapter.notifyDataSetChanged()
+        scheduleRefresh()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        uiHandler.removeCallbacks(refreshRunnable)
     }
 
     // ---- Adapter ----

@@ -275,6 +275,7 @@ object TdClient {
                             apiId = API_ID
                             apiHash = API_HASH
                             databaseDirectory = state.databaseDir
+                            useChatInfoDatabase = true
                             useMessageDatabase = true
                             useFileDatabase = true
                             useSecretChats = false
